@@ -28,3 +28,4 @@ dotenvy = "0.15"
 planetscale-driver = "0.5.1"
 anyhow = "1.0.71"
 openssl = { version = "0.10.35", features = ["vendored"] }
+mysql = "*"

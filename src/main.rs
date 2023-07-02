@@ -1,9 +1,11 @@
 use lambda_http::{run, service_fn, Body, Error, Request, RequestExt, Response};
+use mysql::prelude::Queryable;
 use serde::{Deserialize, Serialize};
 use planetscale_driver::{query, Database, PSConnection};
 use std::env::var;
 use anyhow::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::env;
 
 //// - https://github.com/awslabs/aws-lambda-rust-runtime/tree/main/examples
 
@@ -27,7 +29,12 @@ async fn function_handler(event: Request) -> Result<Response<Body>, Error> {
 
     let offset_int: i8 = request_body.offset.parse().unwrap_or(0);
 
-    let conn = PSConnection::new_from_env().unwrap();
+    let url = env::var("DATABASE_URL").expect("DATABASE_URL not found");
+    let builder = mysql::OptsBuilder::from_opts(mysql::Opts::from_url(&url).unwrap());
+    let pool = mysql::Pool::new(builder.ssl_opts(mysql::SslOpts::default())).unwrap();
+    let conn = pool.get_conn().unwrap();
+    println!("Successfully connected to PlanetScale!");
+
 
     let curr_time_secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -36,7 +43,8 @@ async fn function_handler(event: Request) -> Result<Response<Body>, Error> {
 
     let query_string = std::format!("SELECT * FROM events WHERE timestamp_seconds > {}", curr_time_secs);
 
-    let query_res: Vec<Event> = query(query_string.as_str()).fetch_all(&conn).await?;
+    let query_res = conn.query(query_string);
+
     let message = "hello";
 
     // Return something that implements IntoResponse.
